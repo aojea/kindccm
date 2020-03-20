@@ -1,23 +1,15 @@
 package kindccm
 
 import (
-	"fmt"
-	"net"
-
-	"github.com/golang/glog"
+	"context"
 
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	apiv1 "k8s.io/client-go/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/cloudprovider"
 )
 
 type KindccmLoadBalancer struct {
-	kubeClient      *kubernetes.Clientset
-	namespace, name string
-	serviceCidr     string
-	forwardMethod   string
+	kubeClient *kubernetes.Clientset
 }
 
 var _ cloudprovider.LoadBalancer = &KindccmLoadBalancer{}
@@ -26,189 +18,56 @@ func NewKindccmLoadBalancer(kubeClient *kubernetes.Clientset) cloudprovider.Load
 	return &KindccmLoadBalancer{kubeClient}
 }
 
-func (k *KindccmLoadBalancer) GetLoadBalancer(clusterName string, service *v1.Service) (status *v1.LoadBalancerStatus, exists bool, err error) {
-	cm, err := k.getConfigMap()
+// GetLoadBalancer is a stub implementation of LoadBalancer.GetLoadBalancer.
+func (k *KindccmLoadBalancer) GetLoadBalancer(ctx context.Context, clusterName string, service *v1.Service) (*v1.LoadBalancerStatus, bool, error) {
+	status := &v1.LoadBalancerStatus{}
+	status.Ingress = []v1.LoadBalancerIngress{{IP: k.ExternalIP.String()}}
 
-	if err != nil {
-		return nil, false, err
-	}
-
-	cfg, err := configFrom(cm)
-
-	if err != nil {
-		return nil, false, err
-	}
-
-	for _, svc := range cfg.Services {
-		if svc.UID == string(service.UID) {
-			return &v1.LoadBalancerStatus{
-				Ingress: []v1.LoadBalancerIngress{{IP: svc.IP}},
-			}, true, nil
-		}
-	}
-
-	return nil, false, nil
+	return status, k.Exists, k.Err
 }
 
-func (k *KindccmLoadBalancer) EnsureLoadBalancer(clusterName string, service *v1.Service, nodes []*v1.Node) (*v1.LoadBalancerStatus, error) {
-	return k.syncLoadBalancer(service)
+// GetLoadBalancerName is a stub implementation of LoadBalancer.GetLoadBalancerName.
+func (k *KindccmLoadBalancer) GetLoadBalancerName(ctx context.Context, clusterName string, service *v1.Service) string {
+	// TODO: replace DefaultLoadBalancerName to generate more meaningful loadbalancer names.
+	return cloudprovider.DefaultLoadBalancerName(service)
 }
 
-func (k *KindccmLoadBalancer) UpdateLoadBalancer(clusterName string, service *v1.Service, nodes []*v1.Node) error {
-	_, err := k.syncLoadBalancer(service)
-	return err
-}
-
-func (k *KindccmLoadBalancer) EnsureLoadBalancerDeleted(clusterName string, service *v1.Service) error {
-	return k.deleteLoadBalancer(service)
-}
-
-func (k *KindccmLoadBalancer) deleteLoadBalancer(service *v1.Service) error {
-	glog.Infof("ensure service '%s' (%s) is deleted", service.Name, service.UID)
-
-	cm, err := k.getConfigMap()
-
-	if err != nil {
-		return err
+// EnsureLoadBalancer is a test-spy implementation of LoadBalancer.EnsureLoadBalancer.
+// It adds an entry "create" into the internal method call record.
+func (k *KindccmLoadBalancer) EnsureLoadBalancer(ctx context.Context, clusterName string, service *v1.Service, nodes []*v1.Node) (*v1.LoadBalancerStatus, error) {
+	// TODO: https://github.com/elsonrodriguez/minikube-lb-patch/blob/master/main.go
+	if k.Balancers == nil {
+		k.Balancers = make(map[string]Balancer)
 	}
 
-	cfg, err := configFrom(cm)
+	name := k.GetLoadBalancerName(ctx, clusterName, service)
+	spec := service.Spec
 
-	if err != nil {
-		return err
-	}
-
-	for _, svc := range cfg.Services {
-		// service already exists in the config so just return the status
-		if svc.UID == string(service.UID) {
-			glog.Infof("found service '%s' (%s) for deletion (%s)", service.Name, service.UID, svc.IP)
-			cfg.deleteService(svc)
-			delete(cm.Data, svc.IP)
-
-			cfgBytes, err := cfg.encode()
-
-			if err != nil {
-				return fmt.Errorf("error encoding updated config: %s", err.Error())
-			}
-
-			cm.Annotations[configMapAnnotationKey] = string(cfgBytes)
-
-			glog.Infof("update configmap config annotation: %s", string(cfgBytes))
-			if _, err = k.kubeClient.ConfigMaps(k.namespace).Update(cm); err != nil {
-				return fmt.Errorf("error updating kindccm config: %s", err.Error())
-			}
-
-			glog.Infof("updated configmap")
-			return nil
-		}
-	}
-
-	return nil
-}
-
-func (k *KindccmLoadBalancer) syncLoadBalancer(service *v1.Service) (*v1.LoadBalancerStatus, error) {
-	glog.Infof("syncing service '%s' (%s)", service.Name, service.UID)
-
-	cm, err := k.getConfigMap()
-
+	zone, err := k.GetZone(context.TODO())
 	if err != nil {
 		return nil, err
 	}
+	region := zone.Region
 
-	cfg, err := configFrom(cm)
+	k.Balancers[name] = Balancer{name, region, spec.LoadBalancerIP, spec.Ports, nodes}
 
-	if err != nil {
-		return nil, err
-	}
+	status := &v1.LoadBalancerStatus{}
+	status.Ingress = []v1.LoadBalancerIngress{{IP: k.ExternalIP.String()}}
 
-	forwardMethod := k.forwardMethod
-	reallocateIP := true
-	var svc serviceConfig
-	for _, svc = range cfg.Services {
-		// service already exists in the config so just return the status
-		if svc.UID == string(service.UID) {
-			glog.Infof("found existing loadbalancer for service '%s' (%s) with IP: %s", service.Name, service.UID, svc.IP)
-			// if there's a mismatch between desired loadBalancerIP and actual,
-			// break out of this loop and continue to update
-			if service.Spec.LoadBalancerIP != "" && service.Spec.LoadBalancerIP != svc.IP {
-				break
-			}
-
-			if annotationForwardMethod, ok := service.Annotations[serviceForwardMethodAnnotationKey]; ok {
-				forwardMethod = annotationForwardMethod
-			}
-			if forwardMethod != svc.ForwardMethod {
-				reallocateIP = false
-				break
-			}
-
-			return &v1.LoadBalancerStatus{
-				Ingress: []v1.LoadBalancerIngress{{IP: svc.IP}},
-			}, nil
-		}
-	}
-
-	ip := svc.IP
-	if lbip := service.Spec.LoadBalancerIP; lbip != "" {
-		if i := net.ParseIP(lbip); i == nil {
-			return nil, fmt.Errorf("invalid loadBalancerIP specified '%s': %s", lbip, err.Error())
-		}
-		ip = lbip
-	} else if reallocateIP {
-		ip, err = cfg.allocateIP(k.serviceCidr)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	sc := serviceConfig{
-		UID:              string(service.UID),
-		IP:               ip,
-		ServiceNamespace: service.Namespace,
-		ServiceName:      service.Name,
-		ForwardMethod:    forwardMethod,
-	}
-	cfg.ensureService(sc)
-	cfgBytes, err := cfg.encode()
-
-	if err != nil {
-		return nil, fmt.Errorf("error encoding updated config: %s", err.Error())
-	}
-
-	cm.Data = cfg.toConfigMapData()
-	if forwardMethod != "" {
-		cm.Data[ip] = service.Namespace + "/" + service.Name + ":" + forwardMethod
-	} else {
-		cm.Data[ip] = service.Namespace + "/" + service.Name
-	}
-	cm.Annotations[configMapAnnotationKey] = string(cfgBytes)
-
-	glog.Infof("update configmap config annotation: %s", string(cfgBytes))
-	if _, err = k.kubeClient.ConfigMaps(k.namespace).Update(cm); err != nil {
-		return nil, fmt.Errorf("error updating kindccm config: %s", err.Error())
-	}
-
-	glog.Infof("synced service '%s' (%s): %s", service.Name, service.UID, ip)
-
-	return &v1.LoadBalancerStatus{
-		Ingress: []v1.LoadBalancerIngress{{IP: ip}},
-	}, nil
+	return status, k.Err
 }
 
-func (k *KindccmLoadBalancer) getConfigMap() (*apiv1.ConfigMap, error) {
-	cm, err := k.kubeClient.ConfigMaps(k.namespace).Get(k.name, metav1.GetOptions{})
+// UpdateLoadBalancer is a test-spy implementation of LoadBalancer.UpdateLoadBalancer.
+// It adds an entry "update" into the internal method call record.
+func (k *KindccmLoadBalancer) UpdateLoadBalancer(ctx context.Context, clusterName string, service *v1.Service, nodes []*v1.Node) error {
+	k.addCall("update")
+	k.UpdateCalls = append(k.UpdateCalls, UpdateBalancerCall{service, nodes})
+	return k.Err
+}
 
-	if err != nil {
-		return nil, fmt.Errorf("error getting kindccm configmap: %s", err.Error())
-	}
-
-	if cm.Data == nil {
-		cm.Data = map[string]string{}
-	}
-
-	if cm.Annotations == nil {
-		cm.Annotations = map[string]string{}
-	}
-
-	return cm, err
+// EnsureLoadBalancerDeleted is a test-spy implementation of LoadBalancer.EnsureLoadBalancerDeleted.
+// It adds an entry "delete" into the internal method call record.
+func (k *KindccmLoadBalancer) EnsureLoadBalancerDeleted(ctx context.Context, clusterName string, service *v1.Service) error {
+	k.addCall("delete")
+	return k.Err
 }

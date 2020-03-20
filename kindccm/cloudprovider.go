@@ -2,7 +2,6 @@ package kindccm
 
 import (
 	"fmt"
-	"io"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -23,7 +22,7 @@ type KindccmCloudProvider struct {
 
 var _ cloudprovider.Interface = &KindccmCloudProvider{}
 
-func newKindccmCloudProvider(io.Reader) (cloudprovider.Interface, error) {
+func newKindccmCloudProvider() (cloudprovider.Interface, error) {
 
 	cfg, err := rest.InClusterConfig()
 
@@ -37,7 +36,7 @@ func newKindccmCloudProvider(io.Reader) (cloudprovider.Interface, error) {
 		return nil, fmt.Errorf("error creating kubernetes client: %s", err.Error())
 	}
 
-	return &KindccmCloudProvider{NewKindccmLoadBalancer()}, nil
+	return &KindccmCloudProvider{NewKindccmLoadBalancer(cl)}, nil
 }
 
 // LoadBalancer returns a loadbalancer interface. Also returns true if the interface is supported, false otherwise.
@@ -70,13 +69,7 @@ func (k *KindccmCloudProvider) ProviderName() string {
 	return ProviderName
 }
 
-// ScrubDNS provides an opportunity for cloud-provider-specific code to process DNS settings for pods.
-func (k *KindccmCloudProvider) ScrubDNS(nameservers, searches []string) (nsOut, srchOut []string) {
-	return nil, nil
-}
-
-type zones struct{}
-
-func (z zones) GetZone() (cloudprovider.Zone, error) {
-	return cloudprovider.Zone{FailureDomain: "FailureDomain1", Region: "Region1"}, nil
+// HasClusterID returns true if a ClusterID is required and set
+func (k *KindccmCloudProvider) HasClusterID() bool {
+	return false
 }
