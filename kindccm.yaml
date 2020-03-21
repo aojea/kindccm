@@ -39,6 +39,9 @@ spec:
       containers:
       - name: cloud-controller-manager
         image: aojea/kindccm
+        command:
+          - /bin/kindccm
+          - --cloud-provider=kindccm
         env:
           - name: HOST_IP
             valueFrom:
