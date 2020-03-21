@@ -8,17 +8,16 @@ import (
 	"github.com/spf13/pflag"
 
 	"k8s.io/apiserver/pkg/server/healthz"
-	"k8s.io/apiserver/pkg/util/flag"
-	"k8s.io/apiserver/pkg/util/logs"
+	cloudprovider "k8s.io/cloud-provider"
+	"k8s.io/component-base/cli/flag"
+	"k8s.io/component-base/logs"
 	"k8s.io/kubernetes/cmd/cloud-controller-manager/app"
 	"k8s.io/kubernetes/cmd/cloud-controller-manager/app/options"
-	_ "k8s.io/kubernetes/pkg/client/metrics/prometheus" // for client metric registration
-	"k8s.io/kubernetes/pkg/cloudprovider"
-	_ "k8s.io/kubernetes/pkg/cloudprovider/providers"
-	_ "k8s.io/kubernetes/pkg/version/prometheus" // for version metric registration
 
 	"github.com/aojea/kindccm/kindccm"
 )
+
+const version = "1.0.0"
 
 func init() {
 	healthz.DefaultHealthz()
@@ -45,3 +44,4 @@ func main() {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
+}
