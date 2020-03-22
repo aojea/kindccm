@@ -10,6 +10,6 @@ Install kindccm
 
 Set --cloud-provider=external on our kube-controller-manager master component
 
-Deploy keepalived-cloud-provider
+Deploy kindccm-cloud-provider
 
 Create a service with type: LoadBalancer
