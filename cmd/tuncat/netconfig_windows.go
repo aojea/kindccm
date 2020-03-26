@@ -18,6 +18,16 @@ func (n Netconfig) SetupNetwork(ipNet *net.IPNet, dev string) error {
 	return cmd.Run()
 }
 
+func (n Netconfig) CreateRoutes(ipNet *net.IPNet, dev string) error {
+	// TODO
+	return nil
+}
+
+func (n Netconfig) DeleteRoutes(ipNet *net.IPNet, dev string) error {
+	// TODO
+	return nil
+}
+
 func NewNetconfig() Netconfig {
 	return Netconfig{}
 }

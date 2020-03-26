@@ -39,7 +39,9 @@ func pipeConnIface(conn net.Conn, ifce *water.Interface) {
 }
 
 func main() {
-	const defaultNetwork = "192.168.166.1/24"
+	ifaceType := flag.String("if-type", "TUN", "Local interface type TUN/TAP (Default: TUN)")
+	ifaceAddress := flag.String("if-address", "192.168.166.1/24", "Local interface address (Default:192.168.166.1/24)")
+	remoteNetwork := flag.String("remote-network", "", "Remote network via the tunnel")
 
 	connectCmd := flag.NewFlagSet("connect", flag.ExitOnError)
 	remoteAddress := connectCmd.String("dst-host", "", "remote host address")
@@ -68,8 +70,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Global configuration
+	flag.Parse()
+	var ifType water.DeviceType
+	ifType = water.TUN
+	if *ifaceType == "TAP" {
+		ifType = water.TAP
+	}
+
+	// TODO: Windows have some network specific parameters
+	// https://github.com/songgao/water/blob/master/params_windows.go
 	ifce, err := water.New(water.Config{
-		DeviceType: water.TUN,
+		DeviceType: ifType,
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -78,13 +90,25 @@ func main() {
 	log.Printf("Interface Name: %s\n", ifce.Name())
 
 	// Configure interface with Remote Network
-	_, ipNet, err := net.ParseCIDR(defaultNetwork)
+	_, ipNet, err := net.ParseCIDR(*ifaceAddress)
 	if err != nil {
 		log.Fatal(err)
 	}
 	n := NewNetconfig()
+	// The network configuration is deleted when the interface is destroyed
 	if err := n.SetupNetwork(ipNet, ifce.Name()); err != nil {
 		log.Fatal(err)
+	}
+	// Set up routes to remote network
+	if *remoteNetwork != "" {
+		_, ipNet, err := net.ParseCIDR(*remoteNetwork)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if err := n.CreateRoutes(ipNet, ifce.Name()); err != nil {
+			log.Fatal(err)
+		}
+		defer n.DeleteRoutes(ipNet, ifce.Name())
 	}
 
 	// Connect command
