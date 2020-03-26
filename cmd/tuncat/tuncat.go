@@ -13,7 +13,6 @@ import (
 )
 
 func pipeConnIface(conn net.Conn, ifce *water.Interface) {
-
 	// Copy from the connection to the Tun interface
 	go func() {
 		for {
@@ -77,6 +76,16 @@ func main() {
 	}
 
 	log.Printf("Interface Name: %s\n", ifce.Name())
+
+	// Configure interface with Remote Network
+	_, ipNet, err := net.ParseCIDR(defaultNetwork)
+	if err != nil {
+		log.Fatal(err)
+	}
+	n := NewNetconfig()
+	if err := n.SetupNetwork(ipNet, ifce.Name()); err != nil {
+		log.Fatal(err)
+	}
 
 	// Connect command
 	if connectCmd.Parsed() {
