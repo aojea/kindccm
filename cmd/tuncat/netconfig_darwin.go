@@ -1,33 +1,40 @@
 package main
 
 import (
-	"net"
 	"os/exec"
 )
 
-type Netconfig struct{}
+type Netconfig struct {
+	ip    string
+	route string
+	dev   string
+}
 
-func (n Netconfig) SetupNetwork(ipNet *net.IPNet, dev string) error {
-	if err := exec.Command("ifconfig", dev, "inet", ipNet.IP.String(), ipNet.IP.String(), "up").Run(); err != nil {
+func (n Netconfig) SetupNetwork() error {
+	if err := exec.Command("ifconfig", n.dev, "inet", n.ip, n.ip, "up").Run(); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (n Netconfig) CreateRoutes(ipNet *net.IPNet, dev string) error {
-	if err := exec.Command("route", "-n", "add", ipNet.String(), "-interface", dev).Run(); err != nil {
-		return err
+func (n Netconfig) CreateRoutes() error {
+	if n.route == "" {
+		return nil
 	}
-	return nil
+	return exec.Command("route", "-n", "add", n.route, "-interface", n.dev).Run()
 }
 
-func (n Netconfig) DeleteRoutes(ipNet *net.IPNet, dev string) error {
-	if err := exec.Command("route", "-n", "delete", ipNet.String(), "-interface", dev).Run(); err != nil {
-		return err
+func (n Netconfig) DeleteRoutes() error {
+	if n.route == "" {
+		return nil
 	}
-	return nil
+	return exec.Command("route", "-n", "delete", n.route, "-interface", n.dev).Run()
 }
 
-func NewNetconfig() Netconfig {
-	return Netconfig{}
+func NewNetconfig(ip, route, dev string) Netconfig {
+	return Netconfig{
+		ip:    ip,
+		route: route,
+		dev:   dev,
+	}
 }
