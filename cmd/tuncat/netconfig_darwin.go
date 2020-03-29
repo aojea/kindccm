@@ -17,18 +17,28 @@ func (n Netconfig) SetupNetwork() error {
 	return nil
 }
 
-func (n Netconfig) CreateRoutes() error {
+func (n Netconfig) CreateRoutes(dev string) error {
 	if n.route == "" {
 		return nil
 	}
-	return exec.Command("route", "-n", "add", n.route, "-interface", n.dev).Run()
+	return exec.Command("route", "-n", "add", n.route, "-interface", dev).Run()
 }
 
-func (n Netconfig) DeleteRoutes() error {
+func (n Netconfig) DeleteRoutes(dev string) error {
 	if n.route == "" {
 		return nil
 	}
-	return exec.Command("route", "-n", "delete", n.route, "-interface", n.dev).Run()
+	return exec.Command("route", "-n", "delete", n.route, "-interface", dev).Run()
+}
+
+func (n Netconfig) CreateMasquerade(dev string) error {
+	// Only for Linux
+	return nil
+}
+
+func (n Netconfig) DeleteMasquerade(dev string) error {
+	// Only for Linux
+	return nil
 }
 
 func NewNetconfig(ip, route, dev string) Netconfig {

@@ -4,6 +4,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"runtime"
 
 	"github.com/songgao/water"
 )
@@ -15,7 +16,7 @@ type HostInterface struct {
 }
 
 // NewHostInterface returns a new HostInterface
-func NewHostInterface(ifAddress, remoteNetwork string) (HostInterface, error) {
+func NewHostInterface(ifAddress, remoteNetwork string, serverMode bool) (HostInterface, error) {
 	// Create TUN interface
 	// TODO: Windows have some network specific parameters
 	// https://github.com/songgao/water/blob/master/params_windows.go
@@ -27,15 +28,24 @@ func NewHostInterface(ifAddress, remoteNetwork string) (HostInterface, error) {
 	}
 	log.Printf("Interface Name: %s\n", ifce.Name())
 
-	// Create Network configuration
 	netCfg := NewNetconfig(ifAddress, remoteNetwork, ifce.Name())
 	// The network configuration is deleted when the interface is destroyed
 	if err := netCfg.SetupNetwork(); err != nil {
 		return HostInterface{}, err
 	}
 	// Set up routes to remote network
-	if err := netCfg.CreateRoutes(); err != nil {
+	dev := ifce.Name()
+	if serverMode {
+		dev = "eth0"
+	}
+	if err := netCfg.CreateRoutes(dev); err != nil {
 		return HostInterface{}, err
+	}
+	// Masquerade traffic in server mode and Linux
+	if serverMode && runtime.GOOS == "linux" {
+		if err := netCfg.CreateMasquerade(dev); err != nil {
+			return HostInterface{}, err
+		}
 	}
 
 	return HostInterface{
@@ -48,20 +58,22 @@ func NewHostInterface(ifAddress, remoteNetwork string) (HostInterface, error) {
 // Tunnel consist in a TCP connection and a HostInterface
 // with its networking configuration
 type Tunnel struct {
-	ifce HostInterface
-	conn net.Conn
+	ifce       HostInterface
+	conn       net.Conn
+	serverMode bool
 }
 
 // NewTunnel create a new Tunnel
-func NewTunnel(conn net.Conn, ifAddress, remoteNetwork string) (*Tunnel, error) {
-	ifce, err := NewHostInterface(ifAddress, remoteNetwork)
+func NewTunnel(conn net.Conn, ifAddress, remoteNetwork string, serverMode bool) (*Tunnel, error) {
+	ifce, err := NewHostInterface(ifAddress, remoteNetwork, serverMode)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Tunnel{
-		ifce: ifce,
-		conn: conn,
+		ifce:       ifce,
+		conn:       conn,
+		serverMode: serverMode,
 	}, nil
 }
 
@@ -96,7 +108,18 @@ func (t *Tunnel) Run() {
 
 // Stop cleans the routes and closes the connection and the TUN interface
 func (t *Tunnel) Stop() {
-	t.ifce.netCfg.DeleteRoutes()
+	// Set up routes to remote network
+	dev := t.ifce.ifce.Name()
+	if t.serverMode {
+		dev = "eth0"
+	}
+	t.ifce.netCfg.DeleteRoutes(dev)
+	// Masquerade traffic in server mode and Linux
+	if t.serverMode && runtime.GOOS == "linux" {
+		if err := t.ifce.netCfg.DeleteMasquerade(dev); err != nil {
+			log.Println(err)
+		}
+	}
 	t.ifce.ifce.Close()
 	t.conn.Close()
 }

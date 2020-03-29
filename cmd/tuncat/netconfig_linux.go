@@ -21,18 +21,32 @@ func (n Netconfig) SetupNetwork() error {
 	return nil
 }
 
-func (n Netconfig) CreateRoutes() error {
+func (n Netconfig) CreateRoutes(dev string) error {
 	if n.route == "" {
 		return nil
 	}
-	return exec.Command("ip", "route", "add", n.route, "via", n.dev).Run()
+	return exec.Command("ip", "route", "add", n.route, "via", dev).Run()
 }
 
-func (n Netconfig) DeleteRoutes() error {
+func (n Netconfig) DeleteRoutes(dev string) error {
 	if n.route == "" {
 		return nil
 	}
-	return exec.Command("ip", "route", "del", n.route, "via", n.dev).Run()
+	return exec.Command("ip", "route", "del", n.route, "via", dev).Run()
+}
+
+func (n Netconfig) CreateMasquerade(dev string) error {
+	if n.route == "" {
+		return nil
+	}
+	return exec.Command("iptables", "-t", "nat", "-A", "POSTROUTING", "-i", n.dev, "-o", dev, "-j", "MASQUERADE").Run()
+}
+
+func (n Netconfig) DeleteMasquerade(dev string) error {
+	if n.route == "" {
+		return nil
+	}
+	return exec.Command("iptables", "-t", "nat", "-D", "POSTROUTING", "-i", n.dev, "-o", dev, "-j", "MASQUERADE").Run()
 }
 
 func NewNetconfig(ip, route, dev string) Netconfig {

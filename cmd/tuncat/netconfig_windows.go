@@ -23,13 +23,23 @@ func (n Netconfig) SetupNetwork() error {
 	return cmd.Run()
 }
 
-func (n Netconfig) CreateRoutes() error {
+func (n Netconfig) CreateRoutes(dev string) error {
 	// TODO
 	return nil
 }
 
-func (n Netconfig) DeleteRoutes() error {
+func (n Netconfig) DeleteRoutes(dev string) error {
 	// TODO
+	return nil
+}
+
+func (n Netconfig) CreateMasquerade(dev string) error {
+	// Only for Linux
+	return nil
+}
+
+func (n Netconfig) DeleteMasquerade(dev string) error {
+	// Only for Linux
 	return nil
 }
 

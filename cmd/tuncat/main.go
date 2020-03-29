@@ -78,8 +78,8 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		// Create the tunnel
-		tun, err := NewTunnel(conn, *ifAddress, *remoteNetwork)
+		// Create the tunnel in client mode
+		tun, err := NewTunnel(conn, *ifAddress, *remoteNetwork, false)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -105,8 +105,8 @@ func main() {
 			if err != nil {
 				log.Fatal(err)
 			}
-			// Create the tunnel
-			tun, err := NewTunnel(conn, *ifAddress, *remoteNetwork)
+			// Create the tunnel in server mode
+			tun, err := NewTunnel(conn, *ifAddress, *remoteNetwork, true)
 			if err != nil {
 				log.Fatal(err)
 			}
