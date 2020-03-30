@@ -10,6 +10,8 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+const defaultInterface = "eth0"
+
 // HostInterface represents the TUN interface and the networking configuration
 type HostInterface struct {
 	ifce   *water.Interface
@@ -37,7 +39,7 @@ func NewHostInterface(ifAddress, remoteNetwork string, serverMode bool) (HostInt
 	// Set up routes to remote network
 	dev := ifce.Name()
 	if serverMode {
-		dev = "eth0"
+		dev = defaultInterface
 	}
 	if err := netCfg.CreateRoutes(dev); err != nil {
 		return HostInterface{}, err
@@ -113,7 +115,7 @@ func (t *Tunnel) Stop() {
 	// Set up routes to remote network
 	dev := t.ifce.ifce.Name()
 	if t.serverMode {
-		dev = "eth0"
+		dev = defaultInterface
 	}
 	t.ifce.netCfg.DeleteRoutes(dev)
 	// Masquerade traffic in server mode and Linux

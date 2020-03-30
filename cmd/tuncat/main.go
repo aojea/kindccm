@@ -10,16 +10,19 @@ import (
 )
 
 func main() {
-	ifAddress := flag.String("if-address", "192.168.166.1", "Local interface address")
-	remoteNetwork := flag.String("remote-network", "", "Remote network via the tunnel")
 
+	var remoteNetwork, ifAddress string
 	connectCmd := flag.NewFlagSet("connect", flag.ExitOnError)
 	remoteAddress := connectCmd.String("dst-host", "", "remote host address")
 	remotePort := connectCmd.Int("dst-port", 0, "specify the local port to be used")
+	connectCmd.StringVar(&ifAddress, "if-address", "192.168.166.1", "Local interface address")
+	connectCmd.StringVar(&remoteNetwork, "remote-network", "", "Remote network via the tunnel")
 
 	listenCmd := flag.NewFlagSet("listen", flag.ExitOnError)
 	sourceAddress := listenCmd.String("src-host", "0.0.0.0", "specify the local address to be used")
 	sourcePort := listenCmd.Int("src-port", 0, "specify the local port to be used")
+	listenCmd.StringVar(&ifAddress, "if-address", "192.168.166.1", "Local interface address")
+	listenCmd.StringVar(&remoteNetwork, "remote-network", "", "Remote network via the tunnel")
 
 	if len(os.Args) < 2 {
 		fmt.Println("usage: tuncat [<args>] <command>")
@@ -51,15 +54,15 @@ func main() {
 	flag.Parse()
 
 	// IP address of the tun interface
-	if net.ParseIP(*ifAddress) == nil {
+	if net.ParseIP(ifAddress) == nil {
 		fmt.Errorf("Invalid Interface IP address")
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
 
 	// Remote network via the tun interface
-	if *remoteNetwork != "" {
-		_, _, err := net.ParseCIDR(*remoteNetwork)
+	if remoteNetwork != "" {
+		_, _, err := net.ParseCIDR(remoteNetwork)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -79,7 +82,7 @@ func main() {
 			log.Fatal(err)
 		}
 		// Create the tunnel in client mode
-		tun, err := NewTunnel(conn, *ifAddress, *remoteNetwork, false)
+		tun, err := NewTunnel(conn, ifAddress, remoteNetwork, false)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -106,7 +109,7 @@ func main() {
 				log.Fatal(err)
 			}
 			// Create the tunnel in server mode
-			tun, err := NewTunnel(conn, *ifAddress, *remoteNetwork, true)
+			tun, err := NewTunnel(conn, ifAddress, remoteNetwork, true)
 			if err != nil {
 				log.Fatal(err)
 			}
