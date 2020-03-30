@@ -37,16 +37,20 @@ func NewHostInterface(ifAddress, remoteNetwork string, serverMode bool) (HostInt
 	if err := netCfg.SetupNetwork(); err != nil {
 		return HostInterface{}, err
 	}
+
+	log.Printf("Interface Up: %s\n", ifce.Name())
 	// Set up routes to remote network
 	dev := ifce.Name()
 	if serverMode && runtime.GOOS == "linux" {
 		dev = defaultInterface
 	}
+	log.Printf("Add route %s via %s\n", netCfg.route, dev)
 	if err := netCfg.CreateRoutes(dev); err != nil {
 		return HostInterface{}, err
 	}
 	// Masquerade traffic in server mode and Linux
 	if serverMode && runtime.GOOS == "linux" {
+		log.Printf("Add Masquerade on interface %s\n", dev)
 		if err := netCfg.CreateMasquerade(dev); err != nil {
 			return HostInterface{}, err
 		}
