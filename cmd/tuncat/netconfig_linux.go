@@ -38,7 +38,22 @@ func (n Netconfig) CreateMasquerade(dev string) error {
 	if n.route == "" {
 		return nil
 	}
-	return exec.Command("iptables", "-t", "nat", "-A", "POSTROUTING", "-o", dev, "-j", "MASQUERADE").Run()
+	// Masquerade the tunnel traffic with the external interface
+	if err := exec.Command("iptables", "-t", "nat", "-A", "POSTROUTING", "-o", dev, "-j", "MASQUERADE").Run(); err != nil {
+		return err
+	}
+	// It allows to return the traffic to the tunnel
+	if err := exec.Command("ip", "route", "flush", "10").Run(); err != nil {
+		return err
+	}
+
+	if err := exec.Command("ip", "route", "add", "table", "10", "to", "default", "via", n.ip).Run(); err != nil {
+		return err
+	}
+	if err := exec.Command("ip", "rule", "add", "from", n.route, "table", "10", "priority", "10").Run(); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (n Netconfig) DeleteMasquerade(dev string) error {
