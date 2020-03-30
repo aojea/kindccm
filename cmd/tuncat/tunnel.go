@@ -41,7 +41,7 @@ func NewHostInterface(ifAddress, remoteNetwork, remoteGateway string, serverMode
 	log.Printf("Interface Up: %s\n", ifce.Name())
 	// Set up routes to remote network
 	via := ifce.Name()
-	if serverMode && runtime.GOOS == "linux" {
+	if runtime.GOOS == "linux" {
 		via = remoteGateway
 	}
 	log.Printf("Add route %s via %s\n", netCfg.route, via)

@@ -167,7 +167,7 @@ func main() {
 			conn.Write([]byte(message + "\n"))
 
 			// Create the tunnel in server mode
-			tun, err := NewTunnel(conn, remoteGateway, remoteNetwork, remoteGateway, true)
+			tun, err := NewTunnel(conn, ifAddress, remoteNetwork, remoteGateway, true)
 			if err != nil {
 				log.Fatal(err)
 			}
