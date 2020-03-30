@@ -19,10 +19,11 @@ func validate(ifAddress, remoteNetwork, remoteGateway string) error {
 
 	// Remote network via the tun interface
 	if remoteNetwork != "" {
-		_, _, err := net.ParseCIDR(remoteNetwork)
+		_, ipNet, err := net.ParseCIDR(remoteNetwork)
 		if err != nil {
 			return err
 		}
+		remoteNetwork = ipNet.Network()
 	}
 	return nil
 }
