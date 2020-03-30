@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -38,7 +39,7 @@ func NewHostInterface(ifAddress, remoteNetwork string, serverMode bool) (HostInt
 	}
 	// Set up routes to remote network
 	dev := ifce.Name()
-	if serverMode {
+	if serverMode && runtime.GOOS == "linux" {
 		dev = defaultInterface
 	}
 	if err := netCfg.CreateRoutes(dev); err != nil {
@@ -68,6 +69,7 @@ type Tunnel struct {
 
 // NewTunnel create a new Tunnel
 func NewTunnel(conn net.Conn, ifAddress, remoteNetwork string, serverMode bool) (*Tunnel, error) {
+	fmt.Println("Create Host Interface ...")
 	ifce, err := NewHostInterface(ifAddress, remoteNetwork, serverMode)
 	if err != nil {
 		return nil, err

@@ -1,13 +1,32 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"log"
 	"net"
 	"os"
 	"strconv"
+	"strings"
 )
+
+func validate(ifAddress, remoteNetwork string) error {
+	// IP address of the tun interface
+	if net.ParseIP(ifAddress) == nil {
+		return fmt.Errorf("Invalid Interface IP address")
+
+	}
+
+	// Remote network via the tun interface
+	if remoteNetwork != "" {
+		_, _, err := net.ParseCIDR(remoteNetwork)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 func main() {
 
@@ -21,8 +40,6 @@ func main() {
 	listenCmd := flag.NewFlagSet("listen", flag.ExitOnError)
 	sourceAddress := listenCmd.String("src-host", "0.0.0.0", "specify the local address to be used")
 	sourcePort := listenCmd.Int("src-port", 0, "specify the local port to be used")
-	listenCmd.StringVar(&ifAddress, "if-address", "192.168.166.1", "Local interface address")
-	listenCmd.StringVar(&remoteNetwork, "remote-network", "", "Remote network via the tunnel")
 
 	if len(os.Args) < 2 {
 		fmt.Println("usage: tuncat [<args>] <command>")
@@ -53,19 +70,9 @@ func main() {
 	// Global configuration
 	flag.Parse()
 
-	// IP address of the tun interface
-	if net.ParseIP(ifAddress) == nil {
-		fmt.Errorf("Invalid Interface IP address")
-		flag.PrintDefaults()
+	if err := validate(ifAddress, remoteNetwork); err != nil {
+		log.Fatalf("Validation error %v", err)
 		os.Exit(1)
-	}
-
-	// Remote network via the tun interface
-	if remoteNetwork != "" {
-		_, _, err := net.ParseCIDR(remoteNetwork)
-		if err != nil {
-			log.Fatal(err)
-		}
 	}
 
 	// Connect command
@@ -80,6 +87,15 @@ func main() {
 		conn, err := net.Dial("tcp", remoteHost)
 		if err != nil {
 			log.Fatal(err)
+		}
+		// Send configuretion to the server
+		text := fmt.Sprintf("remoteNetwork:%s", remoteNetwork)
+		// send to socket
+		conn.Write([]byte(text + "\n"))
+		// listen for reply
+		message, _ := bufio.NewReader(conn).ReadString('\n')
+		if strings.TrimSpace(message) != text {
+			log.Fatalf("Connection error, Sent: %s Received: %s", text, message)
 		}
 		// Create the tunnel in client mode
 		tun, err := NewTunnel(conn, ifAddress, remoteNetwork, false)
@@ -108,11 +124,27 @@ func main() {
 			if err != nil {
 				log.Fatal(err)
 			}
+			// Receive the configuration parameters
+			ifAddress = "192.168.166.1"
+			// will listen for message to process ending in newline (\n)
+			message, _ := bufio.NewReader(conn).ReadString('\n')
+			// output message received
+			fmt.Printf("Message Received: %s", message)
+			// process for string received
+			m := strings.Split(message, ":")
+			if m[0] != "remoteNetwork" {
+				log.Fatalf("Connection error, Received: %s Expected: remoteNetwork", m[0])
+			}
+			remoteNetwork = m[1]
+			// send new string back to client
+			conn.Write([]byte(message + "\n"))
+
 			// Create the tunnel in server mode
 			tun, err := NewTunnel(conn, ifAddress, remoteNetwork, true)
 			if err != nil {
 				log.Fatal(err)
 			}
+			fmt.Println("Running the tunnel")
 			go func() {
 				tun.Run()
 				tun.Stop()
