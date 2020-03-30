@@ -11,11 +11,10 @@ import (
 	"strings"
 )
 
-func validate(ifAddress, remoteNetwork string) error {
+func validate(ifAddress, remoteNetwork, remoteGateway string) error {
 	// IP address of the tun interface
-	if net.ParseIP(ifAddress) == nil {
+	if net.ParseIP(ifAddress) == nil || net.ParseIP(remoteGateway) == nil {
 		return fmt.Errorf("Invalid Interface IP address")
-
 	}
 
 	// Remote network via the tun interface
@@ -36,7 +35,7 @@ func main() {
 	remotePort := connectCmd.Int("dst-port", 0, "specify the local port to be used")
 	connectCmd.StringVar(&ifAddress, "if-address", "192.168.166.1", "Local interface address")
 	connectCmd.StringVar(&remoteNetwork, "remote-network", "", "Remote network via the tunnel")
-	connectCmd.StringVar(&remoteNetwork, "remote-gateway", "", "Remote gateway via the tunnel")
+	connectCmd.StringVar(&remoteGateway, "remote-gateway", "", "Remote gateway via the tunnel")
 
 	listenCmd := flag.NewFlagSet("listen", flag.ExitOnError)
 	sourceAddress := listenCmd.String("src-host", "0.0.0.0", "specify the local address to be used")
@@ -71,7 +70,7 @@ func main() {
 	// Global configuration
 	flag.Parse()
 
-	if err := validate(ifAddress, remoteNetwork); err != nil {
+	if err := validate(ifAddress, remoteNetwork, remoteGateway); err != nil {
 		log.Fatalf("Validation error %v", err)
 		os.Exit(1)
 	}
