@@ -38,14 +38,14 @@ func (n Netconfig) CreateMasquerade(dev string) error {
 	if n.route == "" {
 		return nil
 	}
-	return exec.Command("iptables", "-t", "nat", "-A", "POSTROUTING", "-i", n.dev, "-o", dev, "-j", "MASQUERADE").Run()
+	return exec.Command("iptables", "-t", "nat", "-A", "POSTROUTING", "-o", dev, "-j", "MASQUERADE").Run()
 }
 
 func (n Netconfig) DeleteMasquerade(dev string) error {
 	if n.route == "" {
 		return nil
 	}
-	return exec.Command("iptables", "-t", "nat", "-D", "POSTROUTING", "-i", n.dev, "-o", dev, "-j", "MASQUERADE").Run()
+	return exec.Command("iptables", "-t", "nat", "-D", "POSTROUTING", "-o", dev, "-j", "MASQUERADE").Run()
 }
 
 func NewNetconfig(ip, route, dev string) Netconfig {
