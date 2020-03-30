@@ -20,18 +20,18 @@ func (n Netconfig) SetupNetwork() error {
 	return nil
 }
 
-func (n Netconfig) CreateRoutes(dev string) error {
+func (n Netconfig) CreateRoutes(gw string) error {
 	if n.route == "" {
 		return nil
 	}
-	return exec.Command("ip", "route", "add", n.route, "via", dev).Run()
+	return exec.Command("ip", "route", "add", n.route, "via", gw).Run()
 }
 
-func (n Netconfig) DeleteRoutes(dev string) error {
+func (n Netconfig) DeleteRoutes(gw string) error {
 	if n.route == "" {
 		return nil
 	}
-	return exec.Command("ip", "route", "del", n.route, "via", dev).Run()
+	return exec.Command("ip", "route", "del", n.route, "via", gw).Run()
 }
 
 func (n Netconfig) CreateMasquerade(dev string) error {

@@ -30,12 +30,13 @@ func validate(ifAddress, remoteNetwork string) error {
 
 func main() {
 
-	var remoteNetwork, ifAddress string
+	var remoteNetwork, remoteGateway, ifAddress string
 	connectCmd := flag.NewFlagSet("connect", flag.ExitOnError)
 	remoteAddress := connectCmd.String("dst-host", "", "remote host address")
 	remotePort := connectCmd.Int("dst-port", 0, "specify the local port to be used")
 	connectCmd.StringVar(&ifAddress, "if-address", "192.168.166.1", "Local interface address")
 	connectCmd.StringVar(&remoteNetwork, "remote-network", "", "Remote network via the tunnel")
+	connectCmd.StringVar(&remoteNetwork, "remote-gateway", "", "Remote gateway via the tunnel")
 
 	listenCmd := flag.NewFlagSet("listen", flag.ExitOnError)
 	sourceAddress := listenCmd.String("src-host", "0.0.0.0", "specify the local address to be used")
@@ -97,8 +98,17 @@ func main() {
 		if strings.TrimSpace(message) != text {
 			log.Fatalf("Connection error, Sent: %s Received: %s", text, message)
 		}
+		// Send configuretion to the server
+		text = fmt.Sprintf("remoteGateway:%s", remoteGateway)
+		// send to socket
+		conn.Write([]byte(text + "\n"))
+		// listen for reply
+		message, _ = bufio.NewReader(conn).ReadString('\n')
+		if strings.TrimSpace(message) != text {
+			log.Fatalf("Connection error, Sent: %s Received: %s", text, message)
+		}
 		// Create the tunnel in client mode
-		tun, err := NewTunnel(conn, ifAddress, remoteNetwork, false)
+		tun, err := NewTunnel(conn, ifAddress, remoteNetwork, "", false)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -138,9 +148,21 @@ func main() {
 			remoteNetwork = strings.TrimSpace(m[1])
 			// send new string back to client
 			conn.Write([]byte(message + "\n"))
+			// will listen for message to process ending in newline (\n)
+			message, _ = bufio.NewReader(conn).ReadString('\n')
+			// output message received
+			fmt.Printf("Message Received: %s", message)
+			// process for string received
+			m = strings.Split(message, ":")
+			if m[0] != "remoteGateway" {
+				log.Fatalf("Connection error, Received: %s Expected: remoteGateway", m[0])
+			}
+			remoteGateway = strings.TrimSpace(m[1])
+			// send new string back to client
+			conn.Write([]byte(message + "\n"))
 
 			// Create the tunnel in server mode
-			tun, err := NewTunnel(conn, ifAddress, remoteNetwork, true)
+			tun, err := NewTunnel(conn, remoteGateway, remoteNetwork, remoteGateway, true)
 			if err != nil {
 				log.Fatal(err)
 			}

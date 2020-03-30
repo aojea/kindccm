@@ -20,7 +20,7 @@ type HostInterface struct {
 }
 
 // NewHostInterface returns a new HostInterface
-func NewHostInterface(ifAddress, remoteNetwork string, serverMode bool) (HostInterface, error) {
+func NewHostInterface(ifAddress, remoteNetwork, remoteGateway string, serverMode bool) (HostInterface, error) {
 	// Create TUN interface
 	// TODO: Windows have some network specific parameters
 	// https://github.com/songgao/water/blob/master/params_windows.go
@@ -40,18 +40,18 @@ func NewHostInterface(ifAddress, remoteNetwork string, serverMode bool) (HostInt
 
 	log.Printf("Interface Up: %s\n", ifce.Name())
 	// Set up routes to remote network
-	dev := ifce.Name()
+	via := ifce.Name()
 	if serverMode && runtime.GOOS == "linux" {
-		dev = defaultInterface
+		via = remoteGateway
 	}
-	log.Printf("Add route %s via %s\n", netCfg.route, dev)
-	if err := netCfg.CreateRoutes(dev); err != nil {
+	log.Printf("Add route %s via %s\n", netCfg.route, via)
+	if err := netCfg.CreateRoutes(via); err != nil {
 		return HostInterface{}, err
 	}
 	// Masquerade traffic in server mode and Linux
 	if serverMode && runtime.GOOS == "linux" {
-		log.Printf("Add Masquerade on interface %s\n", dev)
-		if err := netCfg.CreateMasquerade(dev); err != nil {
+		log.Printf("Add Masquerade on interface %s\n", defaultInterface)
+		if err := netCfg.CreateMasquerade(defaultInterface); err != nil {
 			return HostInterface{}, err
 		}
 	}
@@ -72,9 +72,9 @@ type Tunnel struct {
 }
 
 // NewTunnel create a new Tunnel
-func NewTunnel(conn net.Conn, ifAddress, remoteNetwork string, serverMode bool) (*Tunnel, error) {
+func NewTunnel(conn net.Conn, ifAddress, remoteNetwork, remoteGateway string, serverMode bool) (*Tunnel, error) {
 	fmt.Println("Create Host Interface ...")
-	ifce, err := NewHostInterface(ifAddress, remoteNetwork, serverMode)
+	ifce, err := NewHostInterface(ifAddress, remoteNetwork, remoteGateway, serverMode)
 	if err != nil {
 		return nil, err
 	}

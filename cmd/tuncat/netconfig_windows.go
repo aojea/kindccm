@@ -23,12 +23,12 @@ func (n Netconfig) SetupNetwork() error {
 	return cmd.Run()
 }
 
-func (n Netconfig) CreateRoutes(dev string) error {
+func (n Netconfig) CreateRoutes(gw string) error {
 	// TODO
 	return nil
 }
 
-func (n Netconfig) DeleteRoutes(dev string) error {
+func (n Netconfig) DeleteRoutes(gw string) error {
 	// TODO
 	return nil
 }
