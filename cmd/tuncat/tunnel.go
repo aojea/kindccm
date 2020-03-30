@@ -7,6 +7,7 @@ import (
 	"runtime"
 
 	"github.com/songgao/water"
+	"golang.org/x/sync/errgroup"
 )
 
 // HostInterface represents the TUN interface and the networking configuration
@@ -80,28 +81,29 @@ func NewTunnel(conn net.Conn, ifAddress, remoteNetwork string, serverMode bool) 
 // Run the Tunnel copies the data from the conn to the interface
 // and viceversa
 func (t *Tunnel) Run() {
+	var g errgroup.Group
 
 	// Copy from the Tun interface to the connection
-	go func() {
+	g.Go(func() error {
 		for {
 			_, err := io.Copy(t.conn, t.ifce.ifce)
 			if err != nil {
-				// return if there is some error
-				// the connection is handled out of the loop
-				log.Println(err)
-				return
+				return err
 			}
 		}
-	}()
+	})
 
-	for {
-		_, err := io.Copy(t.ifce.ifce, t.conn)
-		if err != nil {
-			// log only the error
-			// don't fail if the interface is not ready
-			log.Println(err)
-			return
+	g.Go(func() error {
+		for {
+			_, err := io.Copy(t.ifce.ifce, t.conn)
+			if err != nil {
+				return err
+			}
 		}
+	})
+
+	if err := g.Wait(); err != nil {
+		log.Println(err)
 	}
 
 }
