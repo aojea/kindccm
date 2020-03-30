@@ -12,18 +12,23 @@ import (
 )
 
 func validate(ifAddress, remoteNetwork, remoteGateway string) error {
-	// IP address of the tun interface
-	if net.ParseIP(ifAddress) == nil || net.ParseIP(remoteGateway) == nil {
+	// IP address of the local tun interface
+	if net.ParseIP(ifAddress) == nil {
 		return fmt.Errorf("Invalid Interface IP address")
 	}
 
-	// Remote network via the tun interface
+	// Remote network via the remote tunnel
 	if remoteNetwork != "" {
 		_, ipNet, err := net.ParseCIDR(remoteNetwork)
 		if err != nil {
 			return err
 		}
 		remoteNetwork = ipNet.Network()
+	}
+
+	// Remote gateway via the remote tunnel
+	if len(remoteGateway) > 0 && net.ParseIP(remoteGateway) == nil {
+		return fmt.Errorf("Invalid Remote Gateway IP address")
 	}
 	return nil
 }
