@@ -135,7 +135,7 @@ func main() {
 			if m[0] != "remoteNetwork" {
 				log.Fatalf("Connection error, Received: %s Expected: remoteNetwork", m[0])
 			}
-			remoteNetwork = m[1]
+			remoteNetwork = strings.TrimSpace(m[1])
 			// send new string back to client
 			conn.Write([]byte(message + "\n"))
 
