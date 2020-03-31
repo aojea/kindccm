@@ -38,14 +38,14 @@ func (n Netconfig) SetupNetwork() error {
 }
 
 func (n Netconfig) CreateRoutes() error {
-	if n.route == "" {
+	if len(n.routes.network) == 0 {
 		return nil
 	}
 	return exec.Command("route", "-n", "add", n.routes.network, n.routes.gw).Run()
 }
 
 func (n Netconfig) DeleteRoutes() error {
-	if n.route == "" {
+	if len(n.routes.network) == 0 {
 		return nil
 	}
 	return exec.Command("route", "-n", "delete", n.routes.network, n.routes.gw).Run()
