@@ -58,8 +58,9 @@ func NewHostInterface(ifAddress, remoteNetwork, remoteGateway string, serverMode
 	}
 
 	return HostInterface{
-		ifce:   ifce,
-		netCfg: netCfg,
+		ifce:       ifce,
+		netCfg:     netCfg,
+		serverMode: serverMode,
 	}, nil
 
 }
