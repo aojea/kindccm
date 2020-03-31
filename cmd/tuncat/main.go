@@ -1,14 +1,12 @@
 package main
 
 import (
-	"bufio"
 	"flag"
 	"fmt"
 	"log"
 	"net"
 	"os"
 	"strconv"
-	"strings"
 )
 
 func validate(ifAddress, remoteNetwork, remoteGateway string) error {
@@ -92,32 +90,25 @@ func main() {
 		remoteHost := net.JoinHostPort(*remoteAddress, strconv.Itoa(*remotePort))
 		conn, err := net.Dial("tcp", remoteHost)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("Can't connect to server %q: %v", remoteHost, err)
 		}
-		// Send configuretion to the server
-		text := fmt.Sprintf("remoteNetwork:%s", remoteNetwork)
-		// send to socket
-		conn.Write([]byte(text + "\n"))
-		// listen for reply
-		message, _ := bufio.NewReader(conn).ReadString('\n')
-		if strings.TrimSpace(message) != text {
-			log.Fatalf("Connection error, Sent: %s Received: %s", text, message)
+
+		// Establish the connection: send the tunnel parameters
+		err = ClientConnect(conn, remoteNetwork, remoteGateway)
+		if err != nil {
+			log.Fatalf("Can't establish connection: %v", err)
 		}
-		// Send configuretion to the server
-		text = fmt.Sprintf("remoteGateway:%s", remoteGateway)
-		// send to socket
-		conn.Write([]byte(text + "\n"))
-		// listen for reply
-		message, _ = bufio.NewReader(conn).ReadString('\n')
-		if strings.TrimSpace(message) != text {
-			log.Fatalf("Connection error, Sent: %s Received: %s", text, message)
+		// Create the Host Interface
+		log.Println("Create Host Interface ...")
+		ifce, err := NewHostInterface(ifAddress, remoteNetwork, remoteGateway, false)
+		if err != nil {
+			log.Fatalf("Error creating Host Interface: %v", err)
 		}
 		// Create the tunnel in client mode
-		tun, err := NewTunnel(conn, ifAddress, remoteNetwork, "", false)
-		if err != nil {
-			log.Fatal(err)
-		}
+		tun := NewTunnel(conn, ifce)
+		// Run the tunnel until it fails or is killed
 		tun.Run()
+		// Delete all the tunnel
 		tun.Stop()
 	}
 
@@ -131,7 +122,7 @@ func main() {
 		sourceHost := net.JoinHostPort(*sourceAddress, strconv.Itoa(*sourcePort))
 		ln, err := net.Listen("tcp", sourceHost)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("Can't Listen on address %s : %v", sourceHost, err)
 		}
 
 		for {
@@ -139,43 +130,23 @@ func main() {
 			if err != nil {
 				log.Fatal(err)
 			}
-			// Receive the configuration parameters
-			ifAddress = "192.168.166.1"
-			// will listen for message to process ending in newline (\n)
-			message, _ := bufio.NewReader(conn).ReadString('\n')
-			// output message received
-			fmt.Printf("Message Received: %s", message)
-			// process for string received
-			m := strings.Split(message, ":")
-			if m[0] != "remoteNetwork" {
-				log.Fatalf("Connection error, Received: %s Expected: remoteNetwork", m[0])
-			}
-			remoteNetwork = strings.TrimSpace(m[1])
-			// send new string back to client
-			conn.Write([]byte(message + "\n"))
-			// will listen for message to process ending in newline (\n)
-			message, _ = bufio.NewReader(conn).ReadString('\n')
-			// output message received
-			fmt.Printf("Message Received: %s", message)
-			// process for string received
-			m = strings.Split(message, ":")
-			if m[0] != "remoteGateway" {
-				log.Fatalf("Connection error, Received: %s Expected: remoteGateway", m[0])
-			}
-			remoteGateway = strings.TrimSpace(m[1])
-			// send new string back to client
-			conn.Write([]byte(message + "\n"))
-
-			// Create the tunnel in server mode
-			tun, err := NewTunnel(conn, ifAddress, remoteNetwork, remoteGateway, true)
+			// Establish the connection: receive the tunnel parameters
+			remoteNetwork, remoteGateway, err := ServerConnect(conn)
 			if err != nil {
-				log.Fatal(err)
+				log.Println("Can't establish connection: %v", err)
+				continue
 			}
+			// Create the Host Interface
+			log.Println("Create Host Interface ...")
+			ifce, err := NewHostInterface(ifAddress, remoteNetwork, remoteGateway, true)
+			if err != nil {
+				log.Fatalf("Error creating Host Interface: %v", err)
+			}
+			// Create the tunnel and block (only accept one connection)
+			tun := NewTunnel(conn, ifce)
 			fmt.Println("Running the tunnel")
-			go func() {
-				tun.Run()
-				tun.Stop()
-			}()
+			tun.Run()
+			tun.Stop()
 		}
 	}
 

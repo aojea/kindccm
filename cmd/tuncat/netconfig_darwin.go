@@ -4,10 +4,30 @@ import (
 	"os/exec"
 )
 
+// Route represent a route
+type Route struct {
+	network string
+	gw      string
+}
+
+// Netconfig represent the network configuration of an interface
 type Netconfig struct {
-	ip    string
-	route string
-	dev   string
+	ip string
+	// TODO: []Route
+	routes Route
+	dev    string
+}
+
+// NewNetconfig create new network configuration
+func NewNetconfig(ip, remoteNetwork, remoteGateway, dev string) Netconfig {
+	return Netconfig{
+		ip: ip,
+		routes: Route{
+			network: remoteNetwork,
+			gw:      remoteGateway,
+		},
+		dev: dev,
+	}
 }
 
 func (n Netconfig) SetupNetwork() error {
@@ -17,34 +37,26 @@ func (n Netconfig) SetupNetwork() error {
 	return nil
 }
 
-func (n Netconfig) CreateRoutes(gw string) error {
+func (n Netconfig) CreateRoutes() error {
 	if n.route == "" {
 		return nil
 	}
-	return exec.Command("route", "-n", "add", n.route, dev).Run()
+	return exec.Command("route", "-n", "add", n.routes.network, n.routes.gw).Run()
 }
 
-func (n Netconfig) DeleteRoutes(gw string) error {
+func (n Netconfig) DeleteRoutes() error {
 	if n.route == "" {
 		return nil
 	}
-	return exec.Command("route", "-n", "delete", n.route, dev).Run()
+	return exec.Command("route", "-n", "delete", n.routes.network, n.routes.gw).Run()
 }
 
-func (n Netconfig) CreateMasquerade(gw string) error {
+func (n Netconfig) CreateMasquerade(dev string) error {
 	// Only for Linux
 	return nil
 }
 
-func (n Netconfig) DeleteMasquerade(gw string) error {
+func (n Netconfig) DeleteMasquerade(dev string) error {
 	// Only for Linux
 	return nil
-}
-
-func NewNetconfig(ip, route, dev string) Netconfig {
-	return Netconfig{
-		ip:    ip,
-		route: route,
-		dev:   dev,
-	}
 }

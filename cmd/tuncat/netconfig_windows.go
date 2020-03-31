@@ -6,10 +6,30 @@ import (
 	"strings"
 )
 
+// Route represent a route
+type Route struct {
+	network string
+	gw      string
+}
+
+// Netconfig represent the network configuration of an interface
 type Netconfig struct {
-	ip    string
-	route string
-	dev   string
+	ip string
+	// TODO: []Route
+	routes Route
+	dev    string
+}
+
+// NewNetconfig create new network configuration
+func NewNetconfig(ip, remoteNetwork, remoteGateway, dev string) Netconfig {
+	return Netconfig{
+		ip: ip,
+		routes: Route{
+			network: remoteNetwork,
+			gw:      remoteGateway,
+		},
+		dev: dev,
+	}
 }
 
 func (n Netconfig) SetupNetwork() error {
@@ -23,12 +43,12 @@ func (n Netconfig) SetupNetwork() error {
 	return cmd.Run()
 }
 
-func (n Netconfig) CreateRoutes(gw string) error {
+func (n Netconfig) CreateRoutes() error {
 	// TODO
 	return nil
 }
 
-func (n Netconfig) DeleteRoutes(gw string) error {
+func (n Netconfig) DeleteRoutes() error {
 	// TODO
 	return nil
 }
@@ -41,12 +61,4 @@ func (n Netconfig) CreateMasquerade(dev string) error {
 func (n Netconfig) DeleteMasquerade(dev string) error {
 	// Only for Linux
 	return nil
-}
-
-func NewNetconfig(ip, route, dev string) Netconfig {
-	return Netconfig{
-		ip:    ip,
-		route: route,
-		dev:   dev,
-	}
 }
