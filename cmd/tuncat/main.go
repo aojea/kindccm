@@ -94,7 +94,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("Can't connect to server %q: %v", remoteHost, err)
 		}
-
+		defer conn.Close()
 		// Establish the connection: send the tunnel parameters
 		errChan := make(chan error, 1)
 		timeout := 10 * time.Second
