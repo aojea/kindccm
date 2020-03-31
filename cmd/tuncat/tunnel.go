@@ -33,10 +33,7 @@ func (t *Tunnel) Run() {
 	go func() {
 		for {
 			_, err := io.Copy(t.conn, t.ifce.ifce)
-			if err != nil {
-				log.Printf("Tunnel Error: %v", err)
-				errCh <- err
-			}
+			errCh <- err
 		}
 	}()
 
@@ -44,10 +41,7 @@ func (t *Tunnel) Run() {
 	go func() {
 		for {
 			_, err := io.Copy(t.ifce.ifce, t.conn)
-			if err != nil {
-				log.Printf("Tunnel Error: %v", err)
-				errCh <- err
-			}
+			errCh <- err
 		}
 	}()
 
