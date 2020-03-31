@@ -122,8 +122,6 @@ func main() {
 		tun := NewTunnel(conn, ifce)
 		// Run the tunnel until it fails or is killed
 		tun.Run()
-		// Delete all the tunnel
-		tun.Stop()
 	}
 
 	// Listen command
@@ -178,7 +176,6 @@ func main() {
 			tun := NewTunnel(conn, ifce)
 			fmt.Println("Running the tunnel")
 			tun.Run()
-			tun.Stop()
 		}
 	}
 

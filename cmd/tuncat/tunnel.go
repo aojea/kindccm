@@ -4,8 +4,6 @@ import (
 	"io"
 	"log"
 	"net"
-
-	"golang.org/x/sync/errgroup"
 )
 
 // Tunnel consist in a TCP connection and a HostInterface
@@ -28,38 +26,36 @@ func NewTunnel(conn net.Conn, ifce HostInterface) *Tunnel {
 // Run the Tunnel copies the data from the conn to the interface
 // and viceversa
 func (t *Tunnel) Run() {
-	var g errgroup.Group
-
+	errCh := make(chan error, 2)
+	defer t.ifce.Delete()
+	defer t.conn.Close()
 	// Copy from the Tun interface to the connection
-	g.Go(func() error {
+	go func() {
 		for {
 			_, err := io.Copy(t.conn, t.ifce.ifce)
 			if err != nil {
-				return err
+				log.Printf("Tunnel Error: %v", err)
+				errCh <- err
 			}
 		}
-	})
+	}()
 
 	// Copy from the the connection to the Tun interface
-	g.Go(func() error {
+	go func() {
 		for {
 			_, err := io.Copy(t.ifce.ifce, t.conn)
 			if err != nil {
-				return err
+				log.Printf("Tunnel Error: %v", err)
+				errCh <- err
 			}
 		}
-	})
+	}()
 
 	// Don't fail just log it
-	if err := g.Wait(); err != nil {
-		log.Println(err)
-		return
+	for i := 0; i < 2; i++ {
+		if err := <-errCh; err != nil {
+			log.Printf("Tunnel Error: %v", err)
+			return
+		}
 	}
-
-}
-
-// Stop cleans the routes and closes the connection and the TUN interface
-func (t *Tunnel) Stop() {
-	t.ifce.Delete()
-	t.conn.Close()
 }
