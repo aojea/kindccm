@@ -17,6 +17,8 @@ func ClientConnect(conn net.Conn, remoteNetwork, remoteGateway string) error {
 	conn.Write([]byte(text + "\n"))
 	// wait for acknowledge
 	message, _ := reader.ReadString('\n')
+	// output message received
+	log.Printf("Message Received: %s", message)
 	if strings.TrimSpace(message) != text {
 		return fmt.Errorf("Connection error, Sent: %s Received: %s", text, message)
 	}
@@ -25,6 +27,8 @@ func ClientConnect(conn net.Conn, remoteNetwork, remoteGateway string) error {
 	conn.Write([]byte(text + "\n"))
 	// wait for acknowledge
 	message, _ = reader.ReadString('\n')
+	// output message received
+	log.Printf("Message Received: %s", message)
 	if strings.TrimSpace(message) != text {
 		return fmt.Errorf("Connection error, Sent: %s Received: %s", text, message)
 	}
@@ -46,7 +50,7 @@ func ServerConnect(conn net.Conn) (string, string, error) {
 	}
 	remoteNetwork := strings.TrimSpace(m[1])
 	// send string back to client for ACK
-	conn.Write([]byte(message + "\n"))
+	conn.Write([]byte(message))
 	// will listen for message to process ending in newline (\n)
 	message, _ = reader.ReadString('\n')
 	// output message received
@@ -58,7 +62,7 @@ func ServerConnect(conn net.Conn) (string, string, error) {
 	}
 	remoteGateway := strings.TrimSpace(m[1])
 	// send string back to client for ACK
-	conn.Write([]byte(message + "\n"))
+	conn.Write([]byte(message))
 
 	return remoteNetwork, remoteGateway, nil
 }
