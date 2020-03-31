@@ -17,26 +17,26 @@ func (n Netconfig) SetupNetwork() error {
 	return nil
 }
 
-func (n Netconfig) CreateRoutes(dev string) error {
+func (n Netconfig) CreateRoutes(gw string) error {
 	if n.route == "" {
 		return nil
 	}
-	return exec.Command("route", "-n", "add", n.route, "-interface", dev).Run()
+	return exec.Command("route", "-n", "add", n.route, dev).Run()
 }
 
-func (n Netconfig) DeleteRoutes(dev string) error {
+func (n Netconfig) DeleteRoutes(gw string) error {
 	if n.route == "" {
 		return nil
 	}
-	return exec.Command("route", "-n", "delete", n.route, "-interface", dev).Run()
+	return exec.Command("route", "-n", "delete", n.route, dev).Run()
 }
 
-func (n Netconfig) CreateMasquerade(dev string) error {
+func (n Netconfig) CreateMasquerade(gw string) error {
 	// Only for Linux
 	return nil
 }
 
-func (n Netconfig) DeleteMasquerade(dev string) error {
+func (n Netconfig) DeleteMasquerade(gw string) error {
 	// Only for Linux
 	return nil
 }
