@@ -67,14 +67,9 @@ func NewHostInterface(ifAddress, remoteNetwork, remoteGateway string, serverMode
 // Delete the interface created and the networking configuration associated
 func (h HostInterface) Delete() {
 	log.Printf("Delete interface: %q", h.ifce.Name())
-	dev := h.ifce.Name()
-	if h.serverMode {
-		dev = defaultInterface
-	}
-	h.netCfg.DeleteRoutes()
 	// Masquerade traffic in server mode and Linux
 	if h.serverMode && runtime.GOOS == "linux" {
-		if err := h.netCfg.DeleteMasquerade(dev); err != nil {
+		if err := h.netCfg.DeleteMasquerade(defaultInterface); err != nil {
 			log.Printf("Error deleting masquerade: %v", err)
 		}
 	}
