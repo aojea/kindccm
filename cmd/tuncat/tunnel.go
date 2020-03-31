@@ -53,6 +53,7 @@ func (t *Tunnel) Run() {
 	// Don't fail just log it
 	if err := g.Wait(); err != nil {
 		log.Println(err)
+		return
 	}
 
 }

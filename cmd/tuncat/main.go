@@ -88,6 +88,7 @@ func main() {
 		}
 		// Connect to the remote address
 		remoteHost := net.JoinHostPort(*remoteAddress, strconv.Itoa(*remotePort))
+		log.Printf("Connecting to %s", remoteHost)
 		conn, err := net.Dial("tcp", remoteHost)
 		if err != nil {
 			log.Fatalf("Can't connect to server %q: %v", remoteHost, err)
@@ -128,16 +129,18 @@ func main() {
 		for {
 			conn, err := ln.Accept()
 			if err != nil {
-				log.Fatal(err)
+				log.Fatalf("Can't accept connection on address %s : %v", sourceHost, err)
 			}
 			// Establish the connection: receive the tunnel parameters
 			remoteNetwork, remoteGateway, err := ServerConnect(conn)
 			if err != nil {
-				log.Println("Can't establish connection: %v", err)
+				// Closeon error and wait for a new connection
+				log.Printf("Can't establish connection: %v", err)
+				conn.Close()
 				continue
 			}
 			// Create the Host Interface
-			log.Println("Create Host Interface ...")
+			log.Println("Creating Host Interface ...")
 			ifce, err := NewHostInterface(ifAddress, remoteNetwork, remoteGateway, true)
 			if err != nil {
 				log.Fatalf("Error creating Host Interface: %v", err)
