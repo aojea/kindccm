@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"time"
 )
 
 func validate(ifAddress, remoteNetwork, remoteGateway string) error {
@@ -95,9 +96,21 @@ func main() {
 		}
 
 		// Establish the connection: send the tunnel parameters
-		err = ClientConnect(conn, remoteNetwork, remoteGateway)
-		if err != nil {
-			log.Fatalf("Can't establish connection: %v", err)
+		errChan := make(chan error, 1)
+		timeout := 10 * time.Second
+		go func() {
+			errChan <- ClientConnect(conn, remoteNetwork, remoteGateway)
+		}()
+
+		// wait for the first thing to happen, either
+		// an error, a timeout, or a result
+		select {
+		case err := <-errChan:
+			if err != nil {
+				log.Fatalf("Can't establish connection: %v", err)
+			}
+		case <-time.After(timeout):
+			log.Fatal("Can't establish connection: Timed Out")
 		}
 		// Create the Host Interface
 		log.Println("Create Host Interface ...")
@@ -132,13 +145,29 @@ func main() {
 				log.Fatalf("Can't accept connection on address %s : %v", sourceHost, err)
 			}
 			// Establish the connection: receive the tunnel parameters
-			remoteNetwork, remoteGateway, err := ServerConnect(conn)
-			if err != nil {
+			errChan := make(chan error, 1)
+			timeout := 10 * time.Second
+			go func() {
+				remoteNetwork, remoteGateway, err = ServerConnect(conn)
+				errChan <- err
+			}()
+			// wait for the first thing to happen, either
+			// an error, a timeout, or a result
+			select {
+			case err := <-errChan:
+				if err != nil {
+					// Closeon error and wait for a new connection
+					log.Printf("Can't establish connection: %v", err)
+					conn.Close()
+					continue
+				}
+			case <-time.After(timeout):
 				// Closeon error and wait for a new connection
-				log.Printf("Can't establish connection: %v", err)
+				log.Printf("Can't establish connection: TimeOut")
 				conn.Close()
 				continue
 			}
+
 			// Create the Host Interface
 			log.Println("Creating Host Interface ...")
 			ifce, err := NewHostInterface(ifAddress, remoteNetwork, remoteGateway, true)
