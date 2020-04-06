@@ -18,21 +18,17 @@ limitations under the License.
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
-	"k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
-	coreinformers "k8s.io/client-go/informers/core/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clientcmd"
-	"log"
 	"os"
 	"path/filepath"
 	"time"
+
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 func main() {
@@ -55,43 +51,29 @@ func main() {
 	if err != nil {
 		panic(err.Error())
 	}
-	sharedInformers := informers.NewSharedInformerFactory(clientset, time.Minute)
-	serviceInformer := NewServiceConfig(sharedInformers.Core().V1().Services(), time.Minute)
+	stopCh := make(chan struct{})
+	sharedInformers := informers.NewSharedInformerFactory(clientset, 10*time.Second)
+	serviceInformer := sharedInformers.Core().V1().Services()
 
 	serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			fmt.Println("AddFunc", obj)
+			svc := obj.(*v1.Service)
+			fmt.Println("AddFunc", svc.Name)
 		},
 		UpdateFunc: func(old, cur interface{}) {
-			fmt.Println("Update", old, cur)
+			if old != cur {
+				fmt.Println("Update", old, cur)
+			}
 		},
 		DeleteFunc: func(obj interface{}) {
-			fmt.Println("DeleteFunc", obj)
+			svc := obj.(*v1.Service)
+			fmt.Println("DeleteFunc", svc.Name)
 		},
 	})
-	go sharedInformers.Start(stopCh)
-	go serviceConfig.Run(stopCh)
-
-	for {
-	}
+	sharedInformers.Start(stopCh)
+	<-stopCh
 }
 
-func loopServices(clientset clientset.Interface) {
-	for {
-		svc, err := clientset.CoreV1().Services("").List(context.TODO(), metav1.ListOptions{})
-		if err != nil {
-			log.Fatalf("Error getting services from kubernetes cluster: %s", err)
-		}
-		for _, svc := range svc.Items {
-			if svc.Spec.Type == "LoadBalancer" && len(svc.Status.LoadBalancer.Ingress) == 0 {
-				fmt.Println("Load Balancer", svc)
-			} else {
-				fmt.Println("No Load Balancer", svc)
-			}
-		}
-		time.Sleep(10 * time.Second)
-	}
-}
 func homeDir() string {
 	if h := os.Getenv("HOME"); h != "" {
 		return h
